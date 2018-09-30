@@ -5,6 +5,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { exec } = require('child_process');
 const path = require('path');
+const boosters = require('./config/boosters');
 const app = express();
 const port = 3000;
 
@@ -71,34 +72,30 @@ async function montage(inputs, output) {
 }
 
 function buildBooster(setId, cards) {
-    const booster = [];
+    const structure = boosters.boosterStructure(setId);
+
+    console.log(structure);
 
     // Filter out the basic lands
-    cards = cards.filter(card => card.type_line.indexOf('Basic Land') === -1);
+    const nonLandCards = cards.filter(card => card.type_line.indexOf('Basic Land') === -1);
 
-    // Pick a rare card.
-    const rares = cards.filter(card => card.rarity === 'rare');
-    booster.push(rares[Math.floor(Math.random() * rares.length)]);
+    const all = {
+        [boosters.RARITY.COMMON]:
+            nonLandCards.filter(card => card.rarity === 'common'),
+        [boosters.RARITY.UNCOMMON]:
+            nonLandCards.filter(card => card.rarity === 'uncommon'),
+        [boosters.RARITY.RARE]:
+            nonLandCards.filter(card => card.rarity === 'rare'),
+        [boosters.RARITY.MYTHIC]:
+            nonLandCards.filter(card => card.rarity === 'mythic'),
+        [boosters.CARD_TYPE.BASIC_LAND]:
+            cards.filter(card => card.type_line.indexOf('Basic Land') !== -1)
+    };
 
-    // One eight of the time, override the rare with a mythic.
-    if (Math.random() < 1/8) {
-        const mythics = cards.filter(card => card.rarity === 'mythic');
-        booster[0] = mythics[Math.floor(Math.random() * mythics.length)];
-    }
-
-    // Pick 3 uncommon cards
-    const uncommons = cards.filter(card => card.rarity === 'uncommon');
-    for (let i = 0; i < 3; i++) {
-        booster.push(uncommons[Math.floor(Math.random() * uncommons.length)]);
-    }
-
-    // Pick 11 common cards
-    const commons = cards.filter(card => card.rarity === 'common');
-    for (let i = 0; i < 12; i++) {
-        booster.push(commons[Math.floor(Math.random() * commons.length)]);
-    }
-
-    return booster;
+    return structure.map(type => {
+        const choices = all[type];
+        return choices[Math.floor(Math.random() * choices.length)];
+    });
 }
 
 const mtgSetUrl = (setId) => `https://api.scryfall.com/sets/${setId}`;
