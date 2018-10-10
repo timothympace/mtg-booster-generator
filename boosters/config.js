@@ -1,19 +1,13 @@
-const CARD_TYPE = {
-    MARKETING: 'Marketing',
-    BASIC_LAND: 'Basic Land',
-    LAND: 'Land',
-    CREATURE: 'Creature',
-    LEGENDARY_CREATURE: 'Legendary Creature',
-    INSTANT: 'Instant',
-    SORCERY: 'Sorcery',
-    PLANESWALKER: 'Legendary Planeswalker'
-};
+const allSets = require('./Sets');
 
-const RARITY = {
-    COMMON: 'common',
-    UNCOMMON: 'uncommon',
-    RARE: 'rare',
-    MYTHIC: 'mythic',
+const PULL_TYPES = {
+    MARKETING: 'pullTypes/marketing',
+    PROMO: 'pullTypes/promo',
+    BASIC_LAND: 'pullTypes/basicLand',
+    COMMON: 'pullTypes/common',
+    UNCOMMON: 'pullTypes/uncommon',
+    RARE: 'pullTypes/rare',
+    MYTHIC: 'pullTypes/mythic',
 };
 
 const cardPull = (type, probability = 1) => ({ type, probability });
@@ -31,8 +25,8 @@ const sets = {};
  */
 sets['arn'] =
 sets['atq'] = [
-    ...cardSlots(6, cardPull(RARITY.COMMON)),
-    ...cardSlots(2, cardPull(RARITY.UNCOMMON))
+    ...cardSlots(6, cardPull(PULL_TYPES.COMMON)),
+    ...cardSlots(2, cardPull(PULL_TYPES.UNCOMMON))
 ];
 
 /**
@@ -41,9 +35,9 @@ sets['atq'] = [
  * 11 commons, 3 uncommons and 1 rare.
  */
 sets['leg'] = [
-    ...cardSlots(11, cardPull(RARITY.COMMON)),
-    ...cardSlots(3, cardPull(RARITY.UNCOMMON)),
-    cardSlot(cardPull(RARITY.RARE))
+    ...cardSlots(11, cardPull(PULL_TYPES.COMMON)),
+    ...cardSlots(3, cardPull(PULL_TYPES.UNCOMMON)),
+    cardSlot(cardPull(PULL_TYPES.RARE))
 ];
 
 /**
@@ -56,8 +50,8 @@ sets['leg'] = [
 sets['drk'] =
 sets['fem'] =
 sets['hml'] = [
-    ...cardSlots(6, cardPull(RARITY.COMMON)),
-    ...cardSlots(2, cardPull(RARITY.UNCOMMON, 2/3), cardPull(RARITY.RARE, 1/3))
+    ...cardSlots(6, cardPull(PULL_TYPES.COMMON)),
+    ...cardSlots(2, cardPull(PULL_TYPES.UNCOMMON, 2/3), cardPull(PULL_TYPES.RARE, 1/3))
 ];
 
 /**
@@ -67,9 +61,9 @@ sets['hml'] = [
  */
 sets['all'] =
 sets['chr'] = [
-    ...cardSlots(8, cardPull(RARITY.COMMON)),
-    ...cardSlots(3, cardPull(RARITY.UNCOMMON)),
-    cardSlot(cardPull(RARITY.RARE))
+    ...cardSlots(8, cardPull(PULL_TYPES.COMMON)),
+    ...cardSlots(3, cardPull(PULL_TYPES.UNCOMMON)),
+    cardSlot(cardPull(PULL_TYPES.RARE))
 ];
 
 /**
@@ -77,10 +71,10 @@ sets['chr'] = [
  *
  * 11 commons, 3 uncommons and 1 rare.
  */
-sets['abcdefg'] = [
-    ...cardSlots(11, cardPull(RARITY.COMMON)),
-    ...cardSlots(3, cardPull(RARITY.UNCOMMON)),
-    cardSlot(cardPull(RARITY.RARE))
+sets['mir-csp'] = [
+    ...cardSlots(11, cardPull(PULL_TYPES.COMMON)),
+    ...cardSlots(3, cardPull(PULL_TYPES.UNCOMMON)),
+    cardSlot(cardPull(PULL_TYPES.RARE))
 ];
 
 /**
@@ -89,10 +83,10 @@ sets['abcdefg'] = [
  * 1 land card, 6 commons, 2 uncommons and 1 rare.
  */
 sets['ugl'] = [
-    cardSlot(cardPull(CARD_TYPE.BASIC_LAND)),
-    ...cardSlots(6, cardPull(RARITY.COMMON)),
-    ...cardSlots(2, cardPull(RARITY.UNCOMMON)),
-    cardSlot(cardPull(RARITY.RARE))
+    cardSlot(cardPull(PULL_TYPES.BASIC_LAND)),
+    ...cardSlots(6, cardPull(PULL_TYPES.COMMON)),
+    ...cardSlots(2, cardPull(PULL_TYPES.UNCOMMON)),
+    cardSlot(cardPull(PULL_TYPES.RARE))
 ];
 
 /**
@@ -105,10 +99,10 @@ sets['ugl'] = [
 sets['7ed'] =
 sets['8ed'] =
 sets['9ed'] = [
-    cardSlot(cardPull(CARD_TYPE.BASIC_LAND)),
-    ...cardSlots(10, cardPull(RARITY.COMMON)),
-    ...cardSlots(3, cardPull(RARITY.UNCOMMON)),
-    cardSlot(cardPull(RARITY.RARE))
+    cardSlot(cardPull(PULL_TYPES.BASIC_LAND)),
+    ...cardSlots(10, cardPull(PULL_TYPES.COMMON)),
+    ...cardSlots(3, cardPull(PULL_TYPES.UNCOMMON)),
+    cardSlot(cardPull(PULL_TYPES.RARE))
 ];
 
 /**
@@ -134,20 +128,22 @@ sets['9ed'] = [
  * 1 marketing card, 1 basic land, 10 commons, 3 uncommons and 1 rare.
  */
 sets['10e'] = [
-    cardSlot(cardPull(CARD_TYPE.BASIC_LAND)),
-    ...cardSlots(10, cardPull(RARITY.COMMON)),
-    ...cardSlots(3, cardPull(RARITY.UNCOMMON)),
-    cardSlot(cardPull(RARITY.RARE))
+    cardSlot(cardPull(PULL_TYPES.MARKETING)),
+    cardSlot(cardPull(PULL_TYPES.BASIC_LAND)),
+    ...cardSlots(10, cardPull(PULL_TYPES.COMMON)),
+    ...cardSlots(3, cardPull(PULL_TYPES.UNCOMMON)),
+    cardSlot(cardPull(PULL_TYPES.RARE))
 ];
 
 /**
  * From Lorwyn to Eventide, booster packs contain 16 cards:
  * 1 marketing card, 11 commons, 3 uncommons and 1 rare.
  */
-sets['lorevt'] = [
-    ...cardSlots(11, cardPull(RARITY.COMMON)),
-    ...cardSlots(3, cardPull(RARITY.UNCOMMON)),
-    cardSlot(cardPull(RARITY.RARE))
+sets['lrw-eve'] = [
+    cardSlot(cardPull(PULL_TYPES.MARKETING)),
+    ...cardSlots(11, cardPull(PULL_TYPES.COMMON)),
+    ...cardSlots(3, cardPull(PULL_TYPES.UNCOMMON)),
+    cardSlot(cardPull(PULL_TYPES.RARE))
 ];
 
 /**
@@ -159,16 +155,31 @@ sets['lorevt'] = [
  *
  * However, some of the sets may contain different configurations on particular cards (see below).
  */
-sets['shardson'] = [
-    cardSlot(cardPull(CARD_TYPE.BASIC_LAND)),
-    cardSlot(cardPull(RARITY.COMMON, 3/4), cardPull(CARD_TYPE.MARKETING, 1/4)),
-    ...cardSlots(9, cardPull(RARITY.COMMON)),
-    ...cardSlots(3, cardPull(RARITY.UNCOMMON)),
-    cardSlot(cardPull(RARITY.RARE, 7/8), cardPull(RARITY.MYTHIC, 1/8))
+sets['ala-'] = [
+    cardSlot(cardPull(PULL_TYPES.MARKETING)),
+    cardSlot(cardPull(PULL_TYPES.BASIC_LAND)),
+    cardSlot(cardPull(PULL_TYPES.COMMON, 3/4), cardPull(PULL_TYPES.PROMO, 1/4)),
+    ...cardSlots(9, cardPull(PULL_TYPES.COMMON)),
+    ...cardSlots(3, cardPull(PULL_TYPES.UNCOMMON)),
+    cardSlot(cardPull(PULL_TYPES.RARE, 7/8), cardPull(PULL_TYPES.MYTHIC, 1/8))
 ];
 
 function boosterStructure(setId) {
-    return (sets[setId] || sets['shardson']).map(slot => {
+    if (!(setId in sets)) {
+        setId = Object.keys(sets).filter(k => k.includes('-')).find(idRange => {
+            const [start, end] = idRange.split('-');
+            const startDate = start ?
+                Date.parse(allSets.get(start).released_at) :
+                new Date(-8640000000000000);
+            const endDate = end ?
+                Date.parse(allSets.get(end).released_at) :
+                new Date();
+            const checkDate = Date.parse(allSets.get(setId).released_at);
+            return startDate < checkDate && checkDate < endDate;
+        });
+    }
+
+    return (sets[setId]).map(slot => {
         const sorted = slot.pulls.sort((a,b) => a.probability > b.probability);
         let random = Math.random();
         for (let i = 0; i < sorted.length; i++) {
@@ -184,6 +195,5 @@ function boosterStructure(setId) {
 
 module.exports = {
     boosterStructure,
-    CARD_TYPE,
-    RARITY
+    PULL_TYPES
 };

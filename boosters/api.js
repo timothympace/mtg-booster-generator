@@ -4,12 +4,13 @@ const Scryfall = require('../scryfall/api');
 const ImageMagick = require('../utils/ImageMagick');
 const nodeUtils = require('../utils/nodeUtils');
 const config = require('./config');
+const MtgSet = require('./MtgSet');
 
-const boostersCache = {};
+const imageCache = {};
 
 class BoostersApi {
     static async getCachedBooster(id) {
-        return boostersCache[id];
+        return imageCache[id];
     }
     
     static getBoosterId(booster) {
@@ -17,52 +18,58 @@ class BoostersApi {
             .update(booster.map(card => card.id).join(''))
             .digest('hex');
     }
-    
-    static async buildBooster (setId) {
-        const allCards = await Scryfall.getAllCardsInSet(setId);
-        const booster = this.buildBoosterPack(setId, allCards);
-        const boosterId = this.getBoosterId(booster);
-        const urls = booster.map(card => card.image_uris.png);
+
+    static async buildLandPackImage(setId) {
+        const set = await new MtgSet(setId);
+        const cards = set.all(config.PULL_TYPES.BASIC_LAND);
+        const boosterId = this.getBoosterId(cards);
+        const urls = cards.map(card => card.image_uris.png);
 
         let stream = ImageMagick.montage(urls);
         stream = ImageMagick.compress(stream);
-        boostersCache[boosterId] = nodeUtils.processStream(stream);
+        imageCache[boosterId] = nodeUtils.processStream(stream);
 
         return {
             id: boosterId,
             image: {
                 url: null,
                 width: 5,
-                height: Math.ceil(booster.length / 5),
-                number: booster.length
+                height: Math.ceil(cards.length / 5),
+                number: cards.length
             },
-            booster
+            cards
+        };
+    }
+    
+    static async buildBoosterPackImage (setId) {
+        const cards = await this.buildBoosterPack(setId);
+        const boosterId = this.getBoosterId(cards);
+        const urls = cards.map(card => card.image_uris.png);
+
+        let stream = ImageMagick.montage(urls);
+        stream = ImageMagick.compress(stream);
+        imageCache[boosterId] = nodeUtils.processStream(stream);
+
+        return {
+            id: boosterId,
+            image: {
+                url: null,
+                width: 5,
+                height: Math.ceil(cards.length / 5),
+                number: cards.length
+            },
+            cards
         };
     }
 
-    static buildBoosterPack(setId, cards) {
-        const structure = config.boosterStructure(setId);
+    static async buildBoosterPack(setId) {
+        const allSets = await Scryfall.getSets();
+        const structure = config.boosterStructure(setId, allSets);
+        const set = await new MtgSet(setId);
 
-        // Filter out the basic lands
-        const nonLandCards = cards.filter(card => card.type_line.indexOf('Basic Land') === -1);
-
-        const all = {
-            [config.RARITY.COMMON]:
-                nonLandCards.filter(card => card.rarity === 'common'),
-            [config.RARITY.UNCOMMON]:
-                nonLandCards.filter(card => card.rarity === 'uncommon'),
-            [config.RARITY.RARE]:
-                nonLandCards.filter(card => card.rarity === 'rare'),
-            [config.RARITY.MYTHIC]:
-                nonLandCards.filter(card => card.rarity === 'mythic'),
-            [config.CARD_TYPE.BASIC_LAND]:
-                cards.filter(card => card.type_line.indexOf('Basic Land') !== -1)
-        };
-
-        return structure.map(type => {
-            const choices = all[type];
-            return choices[Math.floor(Math.random() * choices.length)];
-        });
+        return structure
+            .map(type => set.pullCard(type))
+            .filter(v => v); // Filter out non-truthy values.
     }
 }
 

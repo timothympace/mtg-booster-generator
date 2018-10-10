@@ -1,6 +1,8 @@
 const fetch = require('node-fetch');
 const { errwait } = require('../utils/nodeUtils');
 
+let setsCache;
+
 class Scryfall {
     static async getAllCardsInSet(setId) {
         let [response, err] = await errwait(fetch(this.mtgSetUrl(setId)));
@@ -26,6 +28,11 @@ class Scryfall {
     }
 
     static async getSets() {
+        const { data } = require('../boosters/sets.json');
+        return data;
+    }
+
+    static async getSets2() {
         const response = await fetch('https://api.scryfall.com/sets/');
         const { data } = await response.json();
         return data;
