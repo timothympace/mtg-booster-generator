@@ -164,19 +164,23 @@ sets['ala-'] = [
     cardSlot(cardPull(PULL_TYPES.RARE, 7/8), cardPull(PULL_TYPES.MYTHIC, 1/8))
 ];
 
+function getSetRange(setId) {
+    return Object.keys(sets).filter(k => k.includes('-')).find(idRange => {
+        const [start, end] = idRange.split('-');
+        const startDate = start ?
+            Date.parse(allSets.get(start).released_at) :
+            new Date(-8640000000000000);
+        const endDate = end ?
+            Date.parse(allSets.get(end).released_at) :
+            new Date();
+        const checkDate = Date.parse(allSets.get(setId).released_at);
+        return startDate < checkDate && checkDate < endDate;
+    });
+}
+
 function boosterStructure(setId) {
     if (!(setId in sets)) {
-        setId = Object.keys(sets).filter(k => k.includes('-')).find(idRange => {
-            const [start, end] = idRange.split('-');
-            const startDate = start ?
-                Date.parse(allSets.get(start).released_at) :
-                new Date(-8640000000000000);
-            const endDate = end ?
-                Date.parse(allSets.get(end).released_at) :
-                new Date();
-            const checkDate = Date.parse(allSets.get(setId).released_at);
-            return startDate < checkDate && checkDate < endDate;
-        });
+        setId = getSetRange(setId);
     }
 
     return (sets[setId]).map(slot => {
