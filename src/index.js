@@ -1,9 +1,10 @@
 const express = require('express');
+const Scryfall = require('./Scryfall');
+const boosterApi = require('./Boosters');
+const ImageCache = require('./Boosters/ImageCache');
+const sets = require('./Boosters/Sets');
+const { errwait } = require('./utils');
 
-const Scryfall = require('./scryfall/api');
-const boosterApi = require('./boosters/api');
-const { errwait } = require('./utils/nodeUtils');
-const sets = require('./boosters/Sets');
 const app = express();
 const port = 8080;
 
@@ -12,7 +13,7 @@ sets.init().then(() => {
 });
 
 app.listen(port, function(){
-    console.log('Node js Express js Tutorial');
+    console.log(`Server bound to port ${port}`);
 });
 
 app.get('/sets/', function(req, res) {
@@ -21,13 +22,14 @@ app.get('/sets/', function(req, res) {
 });
 
 app.get('/sets/:setId/all', async function (req, res) {
-    const allCards = await Scryfall.getAllCardsInSet(req.params.setId);
+    const allCards = await Scryfall.getSet(req.params.setId);
     res.send(allCards);
 });
 
 app.get('/sets/:setId/booster', async function (req, res) {
     const { setId } = req.params;
-    const [data, err] = await errwait(boosterApi.buildBoosterPackImage(setId));
+    const { quality = 2} = req.query;
+    const [data, err] = await errwait(boosterApi.buildBoosterPackImage(setId, quality));
     if (err != null) {
         console.log(err);
     }
@@ -38,7 +40,8 @@ app.get('/sets/:setId/booster', async function (req, res) {
 
 app.get('/sets/:setId/lands', async function (req, res) {
     const { setId } = req.params;
-    const [data, err] = await errwait(boosterApi.buildLandPackImage(setId));
+    const { quality = 2 } = req.query;
+    const [data, err] = await errwait(boosterApi.buildLandPackImage(setId, quality));
     if (err != null) {
         console.log(err);
     }
@@ -49,7 +52,7 @@ app.get('/sets/:setId/lands', async function (req, res) {
 
 app.get('/images/:id.jpg', async function (req, res) {
     const { id } = req.params;
-    const boosterJpg = await boosterApi.getCachedBooster(id);
+    const boosterJpg = await ImageCache.get(id);
 
     if (!boosterJpg) {
         res.status(404).send(`Image[${id}] does not exist.`);

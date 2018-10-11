@@ -1,4 +1,4 @@
-class nodeUtils {
+class Utils {
     static processStream(stream) {
         const chunks = [];
         return new Promise((resolve, reject) => {
@@ -19,4 +19,4 @@ class nodeUtils {
     }
 }
 
-module.exports = nodeUtils;
+module.exports = Utils;

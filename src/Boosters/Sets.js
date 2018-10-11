@@ -1,4 +1,4 @@
-const Scryfall = require('../scryfall/api');
+const Scryfall = require('../Scryfall');
 
 class Sets {
     constructor() {

@@ -1,6 +1,6 @@
 const config = require('./config');
 const sets = require('./Sets');
-const Scryfall = require('../scryfall/api');
+const Scryfall = require('../Scryfall');
 
 class MtgSet {
     constructor(setId) {
@@ -9,7 +9,7 @@ class MtgSet {
             .forEach(pullType => this.cards[pullType] = []);
 
         return (async () => {
-            const cards = await Scryfall.getAllCardsInSet(setId);
+            const cards = await Scryfall.getSet(setId);
             cards.forEach(card => {
                 if (card.type_line.indexOf('Basic Land') !== -1) {
                     this.cards[config.PULL_TYPES.BASIC_LAND].push(card);
@@ -30,7 +30,7 @@ class MtgSet {
 
             await Promise.all(sets.getChildSets(setId).map(async set => {
                 if (set.set_type === 'token') {
-                    const tokens = await Scryfall.getAllCardsInSet(set.code);
+                    const tokens = await Scryfall.getSet(set.code);
                     this.cards[config.PULL_TYPES.MARKETING].push(...tokens);
                 }
             }));
