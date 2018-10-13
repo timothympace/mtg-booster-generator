@@ -1,0 +1,366 @@
+currentBoosterSet = nil
+currentLandSet = nil
+setNamesToCode = {}
+locked = false
+
+function getObjectByName(name)
+  objs = getAllObjects()
+  for i=1, #objs do
+    if (objs[i].getName() == name) then
+      return objs[i]
+    end
+  end
+
+  return nil
+end
+
+function map(func, array)
+  local new_array = {}
+  for i,v in ipairs(array) do
+    new_array[i] = func(v)
+  end
+  return new_array
+end
+
+function TableConcat(t1,t2)
+    for i=1,#t2 do
+        t1[#t1+1] = t2[i]
+    end
+    return t1
+end
+
+function getAllMtgSets()
+  broadcastToAll("Requesting all MTG sets", {1,1,1})
+  url = "http://tmpace.com:3000/sets"
+  WebRequest.get(url,
+    function(response)
+      if response.is_done then
+        broadcastToAll("Received all MTG sets", {1,1,1})
+        data = JSON.decode(response.text)
+
+        for i=1,#data do
+            setNamesToCode[data[i].name] = data[i].code
+        end
+
+        currentLandSet = data[1].code
+        currentBoosterSet = data[1].code
+
+        buildUI(data)
+      else
+        broadcastToAll("Failed to retrieve all MTG sets", {1,1,1})
+      end
+    end
+  )
+end
+
+function buildUI(sets)
+  setOptions = map(
+    function(set)
+      return {
+        tag = "Option",
+        attributes = {
+          id=set.code
+        },
+        value=set.name
+      }
+    end
+  , sets)
+
+  UI.setXmlTable({
+    {
+      tag="Defaults",
+      children={
+        tag="Button",
+        attributes={
+          color="black",
+          textColor="white"
+        }
+      }
+    },
+    {
+      tag="VerticalLayout",
+      attributes={
+        id="boosterLayout",
+        height=250,
+        width=300,
+        allowDragging=true,
+        returnToOriginalPositionWhenReleased=false,
+        rectAlignment="UpperLeft",
+        offsetXY="100 -80"
+      },
+      children={
+        {
+          tag="Button",
+          attributes={
+            onClick="generateBooster",
+            text="Generate&#xA;Booster"
+          }
+        },
+        {
+          tag="Dropdown",
+          attributes={
+            onValueChanged="setBoosterSet"
+          },
+          children=setOptions
+        }
+      }
+    },
+    {
+      tag="VerticalLayout",
+      attributes={
+        id="landLayout",
+        height=280,
+        width=80,
+        allowDragging=true,
+        returnToOriginalPositionWhenReleased=false,
+        rectAlignment="UpperLeft",
+        offsetXY="500 -80"
+      },
+      children={
+        {
+          tag="Button",
+          attributes={
+            onClick="toggleLandButtons",
+            text="Land&#xA;Generator"
+          }
+        },
+        {
+          tag="Dropdown",
+          attributes={
+            onValueChanged="setLandSet"
+          },
+          children=setOptions
+        },
+        {
+          tag="VerticalLayout",
+          attributes={
+            id="landButtons",
+            height=240,
+            width=80
+          },
+          children={
+            {
+              tag="Button",
+              attributes={
+                text="Island",
+                id="Island",
+                onClick="generateLand"
+              }
+            },
+            {
+              tag="Button",
+              attributes={
+                text="Swamp",
+                id="Swamp",
+                onClick="generateLand"
+              }
+            },
+            {
+              tag="Button",
+              attributes={
+                text="Mountain",
+                id="Mountain",
+                onClick="generateLand"
+              }
+            },
+            {
+              tag="Button",
+              attributes={
+                text="Forest",
+                id="Forest",
+                onClick="generateLand"
+              }
+            },
+            {
+              tag="Button",
+              attributes={
+                text="Plains",
+                id="Plains",
+                onClick="generateLand"
+              }
+            }
+          }
+        }
+      }
+    }
+  })
+end
+
+--Runs whenever game is saved/autosaved
+function onSave()
+    local data_to_save = {bt=boosterToggle}
+    saved_data = JSON.encode(data_to_save)
+    --saved_data = "" --Remove -- at start + save to clear save data
+    return saved_data
+end
+
+--Runs when game is loaded.
+function onLoad(saved_data)
+    --Loads the tracking for if the game has started yet
+    --This recalls the state of the "toggle"
+    if saved_data ~= "" then
+        local loaded_data = JSON.decode(saved_data)
+        boosterToggle = loaded_data.bt
+    else
+        boosterToggle = false
+    end
+    --This hides the roll buttons on launch if the tool was toggled off
+    if boosterToggle then
+        UI.setAttribute("boosterButtons", "active", false)
+        UI.setAttribute("boosterLayout", "height", 40)
+    end
+    --If you intend to use this, I would recommend using math.randomseed here
+
+    getAllMtgSets()
+
+    obj = spawnObject({
+      type = "Custom_Model",
+      rotation = {x=0, y=90, z=0},
+      scale = {x=3, y=3, z=3}
+    })
+    obj.setCustomObject({
+      mesh = "https://www.dropbox.com/s/jockzmj1e6yx0ub/tuckbox.obj?dl=1",
+      type = 6
+    })
+    obj.setName("Booster Box")
+end
+
+--This toggles showing or hiding the roll buttons
+function toggleBoosterButtons()
+    if boosterToggle then
+        --UI.show("boosterButtons")
+        UI.setAttribute("boosterButtons", "active", true)
+        UI.setAttribute("boosterLayout", "height", 280)
+    else
+        --UI.hide("boosterButtons")
+        UI.setAttribute("boosterButtons", "active", false)
+        UI.setAttribute("boosterLayout", "height", 40)
+    end
+    --This flips between true/false for show/hide
+    boosterToggle = not boosterToggle
+end
+
+--Activated by roll buttons, this gets a random value and prints it
+function generateBooster(player, _, setCode)
+    WebRequest.get("http://tmpace.com:3000/sets/" .. currentBoosterSet .. "/booster", function(r) webRequestCallback(player, r) end)
+    broadcastToAll("Generating an " .. currentBoosterSet .. " booster pack", {1,1,1})
+end
+
+function generateLand(player, _, landId)
+    broadcastToAll("Generating an " .. landId, {1,1,1})
+    url = "http://tmpace.com:3000/sets/" .. currentLandSet .. "/lands"
+    print(url)
+    WebRequest.get(url, function(r) landCallback(r) end)
+end
+
+function landCallback(response)
+  if response.is_done then
+    broadcastToAll("Generated the land.", {1,1,1})
+
+    data = JSON.decode(response.text)
+
+    landCard = spawnObject({
+      type = "DeckCustom",
+      rotation = {x=0, y=180, z=0}
+    })
+
+    landCard.setCustomObject({
+      face = data.image.url,
+      back = "https://d1u5p3l4wpay3k.cloudfront.net/mtgsalvation_gamepedia/thumb/f/f8/Magic_card_back.jpg/200px-Magic_card_back.jpg?version=4f6a80129fc99f07b7723141b122def4",
+      width = data.image.width,
+      height = data.image.height,
+      number = data.image.number,
+      back_is_hidden = true
+    })
+  else
+    print("Request failed :(")
+  end
+
+end
+
+function webRequestCallback(player, response)
+    if response.is_done then
+      broadcastToAll("Done generating the booster pack", {1,1,1})
+
+      data = JSON.decode(response.text)
+
+      wrapBooster(data)
+    else
+      print("Request failed :(")
+    end
+end
+
+function wrapBooster(data)
+  if locked then
+    print("Wrab booster is currenty locked with another booster...")
+    Wait.frames(function() wrapBooster(data) end, 60)
+    return
+  end
+
+  locked = true
+
+  box = getObjectByName('Booster Box')
+  pos = box.getPosition()
+  pos.x = pos.x + 5
+  pos.y = 1
+
+  pos2 = {x=pos.x+5, y=pos.y, z=pos.z}
+
+  pack = spawnObject({
+    type = "Custom_Model",
+    scale = {x=1.3,y=1.3,z=1.3},
+    position=pos
+  })
+  pack.setCustomObject({
+    mesh = "https://www.dropbox.com/s/jockzmj1e6yx0ub/tuckbox.obj?dl=1",
+    type = 6
+  })
+  pack.setName("Booster Pack Wrapper")
+
+  booster = spawnObject({
+    type = "DeckCustom",
+    rotation = {x=0, y=180, z=180},
+    position=pos2,
+    callback_function=function()
+      pack = getObjectByName("Booster Pack Wrapper")
+      booster = getObjectByName("Booster Pack")
+      pack.putObject(booster)
+      box.putObject(pack)
+      print("Finished with a booster, unlocking in 1 second...")
+      Wait.frames(function()
+        print("Unlocked!")
+        locked = false
+      end, 60)
+    end
+  })
+
+  booster.setCustomObject({
+    face = data.image.url,
+    back = "https://d1u5p3l4wpay3k.cloudfront.net/mtgsalvation_gamepedia/thumb/f/f8/Magic_card_back.jpg/200px-Magic_card_back.jpg?version=4f6a80129fc99f07b7723141b122def4",
+    width = data.image.width,
+    height = data.image.height,
+    number = data.image.number,
+    back_is_hidden = true
+  })
+
+  booster.setName("Booster Pack")
+end
+
+function setBoosterSet(player, option, setId)
+  code = setNamesToCode[option]
+  currentBoosterSet = code
+end
+
+function setLandSet(player, option, setId)
+  code = setNamesToCode[option]
+  currentLandSet = code
+end
+
+function packBooster()
+  pack = getObjectByName("abcdef")
+  booster = getObjectByName("ghijklm")
+  print(pack)
+  print(booster)
+  pack.putObject(booster)
+end
+
