@@ -1,10 +1,29 @@
+apiBaseUrl = "http://localhost:3000"
+
+function makeApiUrl(path)
+  return apiBaseUrl .. path
+end
+
 currentBoosterSet = nil
 currentLandSet = nil
 setNamesToCode = {}
 locked = false
 
+scriptingZoneIDs = {
+  "0c35fc",
+  "ef6503",
+  "37a754",
+  "8cf839",
+  "1801db",
+  "868adc",
+  "65263e",
+  "96fe96"
+}
+
+scriptZoneLocks = {}
+
 function getObjectByName(name)
-  objs = getAllObjects()
+  local objs = getAllObjects()
   for i=1, #objs do
     if (objs[i].getName() == name) then
       return objs[i]
@@ -31,12 +50,12 @@ end
 
 function getAllMtgSets()
   broadcastToAll("Requesting all MTG sets", {1,1,1})
-  url = "http://tmpace.com:3000/sets"
+  local url = makeApiUrl("/sets")
   WebRequest.get(url,
     function(response)
       if response.is_done then
         broadcastToAll("Received all MTG sets", {1,1,1})
-        data = JSON.decode(response.text)
+        local data = JSON.decode(response.text)
 
         for i=1,#data do
             setNamesToCode[data[i].name] = data[i].code
@@ -54,14 +73,14 @@ function getAllMtgSets()
 end
 
 function buildUI(sets)
-  setOptions = map(
+  local setOptions = map(
     function(set)
       return {
-        tag = "Option",
-        attributes = {
-          id=set.code
+        tag= "Option",
+        attributes= {
+          id= set.code
         },
-        value=set.name
+        value= set.name
       }
     end
   , sets)
@@ -81,7 +100,7 @@ function buildUI(sets)
       tag="VerticalLayout",
       attributes={
         id="boosterLayout",
-        height=250,
+        height=100,
         width=300,
         allowDragging=true,
         returnToOriginalPositionWhenReleased=false,
@@ -109,8 +128,8 @@ function buildUI(sets)
       tag="VerticalLayout",
       attributes={
         id="landLayout",
-        height=280,
-        width=80,
+        height=100,
+        width=300,
         allowDragging=true,
         returnToOriginalPositionWhenReleased=false,
         rectAlignment="UpperLeft",
@@ -120,8 +139,9 @@ function buildUI(sets)
         {
           tag="Button",
           attributes={
-            onClick="toggleLandButtons",
-            text="Land&#xA;Generator"
+            id="Generate",
+            onClick="generateLand",
+            text="Generate&#xA;Land Pack"
           }
         },
         {
@@ -130,56 +150,6 @@ function buildUI(sets)
             onValueChanged="setLandSet"
           },
           children=setOptions
-        },
-        {
-          tag="VerticalLayout",
-          attributes={
-            id="landButtons",
-            height=240,
-            width=80
-          },
-          children={
-            {
-              tag="Button",
-              attributes={
-                text="Island",
-                id="Island",
-                onClick="generateLand"
-              }
-            },
-            {
-              tag="Button",
-              attributes={
-                text="Swamp",
-                id="Swamp",
-                onClick="generateLand"
-              }
-            },
-            {
-              tag="Button",
-              attributes={
-                text="Mountain",
-                id="Mountain",
-                onClick="generateLand"
-              }
-            },
-            {
-              tag="Button",
-              attributes={
-                text="Forest",
-                id="Forest",
-                onClick="generateLand"
-              }
-            },
-            {
-              tag="Button",
-              attributes={
-                text="Plains",
-                id="Plains",
-                onClick="generateLand"
-              }
-            }
-          }
         }
       }
     }
@@ -189,7 +159,7 @@ end
 --Runs whenever game is saved/autosaved
 function onSave()
     local data_to_save = {bt=boosterToggle}
-    saved_data = JSON.encode(data_to_save)
+    local saved_data = JSON.encode(data_to_save)
     --saved_data = "" --Remove -- at start + save to clear save data
     return saved_data
 end
@@ -213,16 +183,27 @@ function onLoad(saved_data)
 
     getAllMtgSets()
 
-    obj = spawnObject({
-      type = "Custom_Model",
-      rotation = {x=0, y=90, z=0},
-      scale = {x=3, y=3, z=3}
+    local obj = spawnObject({
+      type= "Custom_Model",
+      rotation= {x=0, y=90, z=0},
+      scale= {x=3, y=3, z=3}
     })
     obj.setCustomObject({
-      mesh = "https://www.dropbox.com/s/jockzmj1e6yx0ub/tuckbox.obj?dl=1",
-      type = 6
+      mesh= "https://www.dropbox.com/s/jockzmj1e6yx0ub/tuckbox.obj?dl=1",
+      type= 6
     })
     obj.setName("Booster Box")
+end
+
+function resetAndLockBoosterBox()
+  local obj = getObjectByName("Booster Box")
+  obj.setPosition({24.66, 2.14, -16.25})
+  obj.setLock(true)
+end
+
+function unlockBoosterBox()
+  local obj = getObjectByName("Booster Box")
+  obj.setLock(false)
 end
 
 --This toggles showing or hiding the roll buttons
@@ -242,13 +223,13 @@ end
 
 --Activated by roll buttons, this gets a random value and prints it
 function generateBooster(player, _, setCode)
-    WebRequest.get("http://tmpace.com:3000/sets/" .. currentBoosterSet .. "/booster", function(r) webRequestCallback(player, r) end)
+    WebRequest.get(makeApiUrl("/sets/" .. currentBoosterSet .. "/booster"), function(r) webRequestCallback(player, r) end)
     broadcastToAll("Generating an " .. currentBoosterSet .. " booster pack", {1,1,1})
 end
 
 function generateLand(player, _, landId)
     broadcastToAll("Generating an " .. landId, {1,1,1})
-    url = "http://tmpace.com:3000/sets/" .. currentLandSet .. "/lands"
+    local url = makeApiUrl("/sets/" .. currentLandSet .. "/lands")
     print(url)
     WebRequest.get(url, function(r) landCallback(r) end)
 end
@@ -257,20 +238,20 @@ function landCallback(response)
   if response.is_done then
     broadcastToAll("Generated the land.", {1,1,1})
 
-    data = JSON.decode(response.text)
+    local data = JSON.decode(response.text)
 
-    landCard = spawnObject({
+    local landCard = spawnObject({
       type = "DeckCustom",
       rotation = {x=0, y=180, z=0}
     })
 
     landCard.setCustomObject({
-      face = data.image.url,
-      back = "https://d1u5p3l4wpay3k.cloudfront.net/mtgsalvation_gamepedia/thumb/f/f8/Magic_card_back.jpg/200px-Magic_card_back.jpg?version=4f6a80129fc99f07b7723141b122def4",
-      width = data.image.width,
-      height = data.image.height,
-      number = data.image.number,
-      back_is_hidden = true
+      face= data.image.url,
+      back= "https://d1u5p3l4wpay3k.cloudfront.net/mtgsalvation_gamepedia/thumb/f/f8/Magic_card_back.jpg/200px-Magic_card_back.jpg?version=4f6a80129fc99f07b7723141b122def4",
+      width= data.image.width,
+      height= data.image.height,
+      number= data.image.number,
+      back_is_hidden= true
     })
   else
     print("Request failed :(")
@@ -278,89 +259,227 @@ function landCallback(response)
 
 end
 
+function getOpenScriptZone()
+  for i=1, #scriptingZoneIDs do
+    if (scriptZoneLocks[scriptingZoneIDs[i]] != true) then
+      return getObjectFromGUID(scriptingZoneIDs[i])
+    end
+  end
+end
+
 function webRequestCallback(player, response)
+    local zone = getOpenScriptZone()
+    if zone == nil then
+      local newResponse = {
+        is_done= response.is_done,
+        text= response.text
+      }
+      print("No open zones, waiting 1 second...")
+      Wait.frames(function() webRequestCallback(player, newResponse) end, 60)
+      return
+    else
+      scriptZoneLocks[zone.getGUID()] = true
+    end
+
+    resetAndLockBoosterBox()
+
     if response.is_done then
       broadcastToAll("Done generating the booster pack", {1,1,1})
 
-      data = JSON.decode(response.text)
+      local data = JSON.decode(response.text)
 
-      wrapBooster(data)
+      local cardStack = nil
+
+      createBooster(zone, data)
+        .thenF(function(deck) return spreadDeckAndNameCards(deck, data.cards) end)
+        .thenF(function()
+          cardStack = collectCards(zone)
+          return cardStack
+        end)
+        .thenF(function(pack) return waitForObjToHaveGUID(cardStack) end)
+        .thenF(function() return spawnBoosterWrapper(zone) end)
+        .thenF(function(pack)
+          local realPack = getObjectFromGUID(pack.getGUID())
+          cardStack = getObjectFromGUID(cardStack.getGUID())
+          realPack.putObject(cardStack)
+          return realPack
+        end)
+        .thenF(function(pack)
+            local box = getObjectByName('Booster Box')
+            box.putObject(pack)
+        end)
+        .thenF(function() scriptZoneLocks[zone.getGUID()] = false end)
+        .thenF(function()
+          for i=1, #scriptZoneLocks do
+            if (scriptZoneLocks[i])  then
+              return;
+            end
+          end
+          unlockBoosterBox()
+        end)
     else
       print("Request failed :(")
     end
 end
 
-function wrapBooster(data)
-  if locked then
-    print("Wrab booster is currenty locked with another booster...")
-    Wait.frames(function() wrapBooster(data) end, 60)
-    return
-  end
+function waitForObjToHaveGUID(obj)
+  return Promise(function(resolve, reject)
+    Wait.condition(
+      function() resolve(getObjectFromGUID(obj.getGUID())) end,
+      function() return obj.getGUID() != nil end,
+      600,
+      reject
+    )
+  end)
+end
 
-  locked = true
+function spawnBoosterWrapper(zone)
+  local position = zone.positionToWorld({x=-0.45, y=0, z=0})
 
-  box = getObjectByName('Booster Box')
-  pos = box.getPosition()
-  pos.x = pos.x + 5
-  pos.y = 1
-
-  pos2 = {x=pos.x+5, y=pos.y, z=pos.z}
-
-  pack = spawnObject({
-    type = "Custom_Model",
-    scale = {x=1.3,y=1.3,z=1.3},
-    position=pos
+  print("spawning booster at".. "x:" .. position.x .. " y:" .. position.y .. " z:" .. position.z)
+  local pack = spawnObject({
+    type= "Custom_Model",
+    scale= {x=1.3,y=1.3,z=1.3},
+    position= position,
   })
   pack.setCustomObject({
-    mesh = "https://www.dropbox.com/s/jockzmj1e6yx0ub/tuckbox.obj?dl=1",
-    type = 6
+    mesh= "https://www.dropbox.com/s/jockzmj1e6yx0ub/tuckbox.obj?dl=1",
+    type= 6
   })
-  pack.setName("Booster Pack Wrapper")
 
-  booster = spawnObject({
-    type = "DeckCustom",
-    rotation = {x=0, y=180, z=180},
-    position=pos2,
-    callback_function=function()
-      pack = getObjectByName("Booster Pack Wrapper")
-      booster = getObjectByName("Booster Pack")
-      pack.putObject(booster)
-      box.putObject(pack)
-      print("Finished with a booster, unlocking in 1 second...")
-      Wait.frames(function()
-        print("Unlocked!")
-        locked = false
-      end, 60)
+  return waitForObjToHaveGUID(pack)
+end
+
+function collectCards(zone)
+  local sortedCards = table.sort(zone.getObjects(), function(a,b)
+    return a.getPosition().x < b.getPosition().x
+  end)
+  local sortedCardGUIDs = map(function(card)
+    return card.getGUID()
+  end, sortedCards)
+  local stack = getObjectFromGUID(sortedCardGUIDs[1])
+  for i=2, #sortedCardGUIDs do
+    stack = stack.putObject(getObjectFromGUID(sortedCardGUIDs[i]))
+  end
+
+  return stack
+end
+
+function spreadDeckAndNameCards(deck, cards)
+  return Promise(function(resolve, reject)
+    local callbackCalled = 0
+    for i=1, #cards do
+      deck.takeObject({
+        position=deck.positionToWorld({x=3*i, y=0, z=0}),
+        callback_function=function(obj)
+          obj.setName(cards[i].name)
+          obj.setDescription(cards[i].oracle_text)
+          callbackCalled = callbackCalled + 1
+
+          if (callbackCalled == #cards) then
+            resolve()
+          end
+        end
+      })
     end
-  })
+  end)
+end
 
-  booster.setCustomObject({
-    face = data.image.url,
-    back = "https://d1u5p3l4wpay3k.cloudfront.net/mtgsalvation_gamepedia/thumb/f/f8/Magic_card_back.jpg/200px-Magic_card_back.jpg?version=4f6a80129fc99f07b7723141b122def4",
-    width = data.image.width,
-    height = data.image.height,
-    number = data.image.number,
-    back_is_hidden = true
-  })
+function createBooster(zone, data)
+  return Promise(function(resolve, reject)
+    local position = zone.positionToWorld({x=-0.45, y=0, z=0})
 
-  booster.setName("Booster Pack")
+    local booster = spawnObject({
+      type= "DeckCustom",
+      position= position,
+      rotation= {x=0, y=180, z=180},
+      callback_function= function(obj)
+        waitForObjToHaveGUID(obj).thenF(function(obj)
+            resolve(obj)
+        end)
+      end
+    })
+
+    booster.setCustomObject({
+      face= data.image.url,
+      back= "https://d1u5p3l4wpay3k.cloudfront.net/mtgsalvation_gamepedia/thumb/f/f8/Magic_card_back.jpg/200px-Magic_card_back.jpg?version=4f6a80129fc99f07b7723141b122def4",
+      width= data.image.width,
+      height= data.image.height,
+      number= data.image.number,
+      back_is_hidden= true
+    })
+  end)
+end
+
+function Promise(func)
+  local isResolved = false
+  local isRejected = false
+  local successFunc = nil
+  local errorFunc = nil
+  local resolveArg = nil
+  local rejectArg = nil
+  local thenResolve = nil
+  local thenReject = nil
+
+  local this = {
+    thenF=function(success, fail)
+      successFunc = success
+      errorFunc = fail
+
+      local promise = Promise(function(resolve, reject)
+        thenResolve = resolve
+        thenReject = reject
+      end)
+
+      if (isResolved) then
+        resolve(resolveArg)
+      end
+
+      if (isRejected) then
+        reject(rejectArg)
+      end
+
+      return promise
+    end
+  }
+
+  local resolve = function(data)
+    isResolved = true
+    resolveArg = data
+    if (successFunc) then
+      local maybePromise = successFunc(data)
+      if (maybePromise and type(maybePromise) == "table" and maybePromise.thenF) then
+        maybePromise.thenF(function(data) return thenResolve(data) end)
+      else
+        thenResolve(maybePromise)
+      end
+    end
+  end
+
+  local reject = function(data)
+    isRejected = true
+    rejectArg = data
+    if (errorFunc) then
+      local maybePromise = errorFunc(data)
+      if (maybePromise and maybePromise.thenF) then
+        maybePromise.thenF(nil, thenReject)
+      else
+        thenReject()
+      end
+    end
+  end
+
+  func(resolve, reject)
+
+  return this
 end
 
 function setBoosterSet(player, option, setId)
-  code = setNamesToCode[option]
+  local code = setNamesToCode[option]
   currentBoosterSet = code
 end
 
 function setLandSet(player, option, setId)
-  code = setNamesToCode[option]
+  local code = setNamesToCode[option]
   currentLandSet = code
 end
-
-function packBooster()
-  pack = getObjectByName("abcdef")
-  booster = getObjectByName("ghijklm")
-  print(pack)
-  print(booster)
-  pack.putObject(booster)
-end
-

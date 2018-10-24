@@ -1,0 +1,607 @@
+{
+  "SaveName": "test",
+  "GameMode": "Custom UI Example",
+  "Gravity": 0.5,
+  "Date": "10/22/2018 7:27:10 AM",
+  "Table": "Table_RPG",
+  "Sky": "Sky_Field",
+  "Note": "",
+  "Rules": "",
+  "XmlUI": "<!-- Xml UI. See documentation: https://api.tabletopsimulator.com/ui/introUI/ -->",
+  "CustomUIAssets": [
+    {
+      "Name": "TTSLogo",
+      "URL": "http://cloud-3.steamusercontent.com/ugc/936064212973557569/9D9F00D3BAEB906B3393649C931267AB6F24D915/"
+    }
+  ],
+  "LuaScript": "apiBaseUrl = \"http://localhost:3000\"\n\nfunction makeApiUrl(path)\n  return apiBaseUrl .. path\nend\n\ncurrentBoosterSet = nil\ncurrentLandSet = nil\nsetNamesToCode = {}\nlocked = false\n\nscriptingZoneIDs = {\n  \"0c35fc\",\n  \"ef6503\",\n  \"37a754\",\n  \"8cf839\",\n  \"1801db\",\n  \"868adc\",\n  \"65263e\",\n  \"96fe96\"\n}\n\nscriptZoneLocks = {}\n\nfunction getObjectByName(name)\n  local objs = getAllObjects()\n  for i=1, #objs do\n    if (objs[i].getName() == name) then\n      return objs[i]\n    end\n  end\n\n  return nil\nend\n\nfunction map(func, array)\n  local new_array = {}\n  for i,v in ipairs(array) do\n    new_array[i] = func(v)\n  end\n  return new_array\nend\n\nfunction TableConcat(t1,t2)\n    for i=1,#t2 do\n        t1[#t1+1] = t2[i]\n    end\n    return t1\nend\n\nfunction getAllMtgSets()\n  broadcastToAll(\"Requesting all MTG sets\", {1,1,1})\n  local url = makeApiUrl(\"/sets\")\n  WebRequest.get(url,\n    function(response)\n      if response.is_done then\n        broadcastToAll(\"Received all MTG sets\", {1,1,1})\n        local data = JSON.decode(response.text)\n\n        for i=1,#data do\n            setNamesToCode[data[i].name] = data[i].code\n        end\n\n        currentLandSet = data[1].code\n        currentBoosterSet = data[1].code\n\n        buildUI(data)\n      else\n        broadcastToAll(\"Failed to retrieve all MTG sets\", {1,1,1})\n      end\n    end\n  )\nend\n\nfunction buildUI(sets)\n  local setOptions = map(\n    function(set)\n      return {\n        tag= \"Option\",\n        attributes= {\n          id= set.code\n        },\n        value= set.name\n      }\n    end\n  , sets)\n\n  UI.setXmlTable({\n    {\n      tag=\"Defaults\",\n      children={\n        tag=\"Button\",\n        attributes={\n          color=\"black\",\n          textColor=\"white\"\n        }\n      }\n    },\n    {\n      tag=\"VerticalLayout\",\n      attributes={\n        id=\"boosterLayout\",\n        height=100,\n        width=300,\n        allowDragging=true,\n        returnToOriginalPositionWhenReleased=false,\n        rectAlignment=\"UpperLeft\",\n        offsetXY=\"100 -80\"\n      },\n      children={\n        {\n          tag=\"Button\",\n          attributes={\n            onClick=\"generateBooster\",\n            text=\"Generate&#xA;Booster\"\n          }\n        },\n        {\n          tag=\"Dropdown\",\n          attributes={\n            onValueChanged=\"setBoosterSet\"\n          },\n          children=setOptions\n        }\n      }\n    },\n    {\n      tag=\"VerticalLayout\",\n      attributes={\n        id=\"landLayout\",\n        height=100,\n        width=300,\n        allowDragging=true,\n        returnToOriginalPositionWhenReleased=false,\n        rectAlignment=\"UpperLeft\",\n        offsetXY=\"500 -80\"\n      },\n      children={\n        {\n          tag=\"Button\",\n          attributes={\n            id=\"Generate\",\n            onClick=\"generateLand\",\n            text=\"Generate&#xA;Land Pack\"\n          }\n        },\n        {\n          tag=\"Dropdown\",\n          attributes={\n            onValueChanged=\"setLandSet\"\n          },\n          children=setOptions\n        }\n      }\n    }\n  })\nend\n\n--Runs whenever game is saved/autosaved\nfunction onSave()\n    local data_to_save = {bt=boosterToggle}\n    local saved_data = JSON.encode(data_to_save)\n    --saved_data = \"\" --Remove -- at start + save to clear save data\n    return saved_data\nend\n\n--Runs when game is loaded.\nfunction onLoad(saved_data)\n    --Loads the tracking for if the game has started yet\n    --This recalls the state of the \"toggle\"\n    if saved_data ~= \"\" then\n        local loaded_data = JSON.decode(saved_data)\n        boosterToggle = loaded_data.bt\n    else\n        boosterToggle = false\n    end\n    --This hides the roll buttons on launch if the tool was toggled off\n    if boosterToggle then\n        UI.setAttribute(\"boosterButtons\", \"active\", false)\n        UI.setAttribute(\"boosterLayout\", \"height\", 40)\n    end\n    --If you intend to use this, I would recommend using math.randomseed here\n\n    getAllMtgSets()\n\n    local obj = spawnObject({\n      type= \"Custom_Model\",\n      rotation= {x=0, y=90, z=0},\n      scale= {x=3, y=3, z=3}\n    })\n    obj.setCustomObject({\n      mesh= \"https://www.dropbox.com/s/jockzmj1e6yx0ub/tuckbox.obj?dl=1\",\n      type= 6\n    })\n    obj.setName(\"Booster Box\")\nend\n\nfunction resetAndLockBoosterBox()\n  local obj = getObjectByName(\"Booster Box\")\n  obj.setPosition({24.66, 2.14, -16.25})\n  obj.setLock(true)\nend\n\nfunction unlockBoosterBox()\n  local obj = getObjectByName(\"Booster Box\")\n  obj.setLock(false)\nend\n\n--This toggles showing or hiding the roll buttons\nfunction toggleBoosterButtons()\n    if boosterToggle then\n        --UI.show(\"boosterButtons\")\n        UI.setAttribute(\"boosterButtons\", \"active\", true)\n        UI.setAttribute(\"boosterLayout\", \"height\", 280)\n    else\n        --UI.hide(\"boosterButtons\")\n        UI.setAttribute(\"boosterButtons\", \"active\", false)\n        UI.setAttribute(\"boosterLayout\", \"height\", 40)\n    end\n    --This flips between true/false for show/hide\n    boosterToggle = not boosterToggle\nend\n\n--Activated by roll buttons, this gets a random value and prints it\nfunction generateBooster(player, _, setCode)\n    WebRequest.get(makeApiUrl(\"/sets/\" .. currentBoosterSet .. \"/booster\"), function(r) webRequestCallback(player, r) end)\n    broadcastToAll(\"Generating an \" .. currentBoosterSet .. \" booster pack\", {1,1,1})\nend\n\nfunction generateLand(player, _, landId)\n    broadcastToAll(\"Generating an \" .. landId, {1,1,1})\n    local url = makeApiUrl(\"/sets/\" .. currentLandSet .. \"/lands\")\n    print(url)\n    WebRequest.get(url, function(r) landCallback(r) end)\nend\n\nfunction landCallback(response)\n  if response.is_done then\n    broadcastToAll(\"Generated the land.\", {1,1,1})\n\n    local data = JSON.decode(response.text)\n\n    local landCard = spawnObject({\n      type = \"DeckCustom\",\n      rotation = {x=0, y=180, z=0}\n    })\n\n    landCard.setCustomObject({\n      face= data.image.url,\n      back= \"https://d1u5p3l4wpay3k.cloudfront.net/mtgsalvation_gamepedia/thumb/f/f8/Magic_card_back.jpg/200px-Magic_card_back.jpg?version=4f6a80129fc99f07b7723141b122def4\",\n      width= data.image.width,\n      height= data.image.height,\n      number= data.image.number,\n      back_is_hidden= true\n    })\n  else\n    print(\"Request failed :(\")\n  end\n\nend\n\nfunction getOpenScriptZone()\n  for i=1, #scriptingZoneIDs do\n    if (scriptZoneLocks[scriptingZoneIDs[i]] != true) then\n      return getObjectFromGUID(scriptingZoneIDs[i])\n    end\n  end\nend\n\nfunction webRequestCallback(player, response)\n    local zone = getOpenScriptZone()\n    if zone == nil then\n      local newResponse = {\n        is_done= response.is_done,\n        text= response.text\n      }\n      print(\"No open zones, waiting 1 second...\")\n      Wait.frames(function() webRequestCallback(player, newResponse) end, 60)\n      return\n    else\n      scriptZoneLocks[zone.getGUID()] = true\n    end\n\n    resetAndLockBoosterBox()\n\n    if response.is_done then\n      broadcastToAll(\"Done generating the booster pack\", {1,1,1})\n\n      local data = JSON.decode(response.text)\n\n      local cardStack = nil\n\n      createBooster(zone, data)\n        .thenF(function(deck) return spreadDeckAndNameCards(deck, data.cards) end)\n        .thenF(function()\n          cardStack = collectCards(zone)\n          return cardStack\n        end)\n        .thenF(function(pack) return waitForObjToHaveGUID(cardStack) end)\n        .thenF(function() return spawnBoosterWrapper(zone) end)\n        .thenF(function(pack)\n          local realPack = getObjectFromGUID(pack.getGUID())\n          cardStack = getObjectFromGUID(cardStack.getGUID())\n          realPack.putObject(cardStack)\n          return realPack\n        end)\n        .thenF(function(pack)\n            local box = getObjectByName('Booster Box')\n            box.putObject(pack)\n        end)\n        .thenF(function() scriptZoneLocks[zone.getGUID()] = false end)\n        .thenF(function()\n          for i=1, #scriptZoneLocks do\n            if (scriptZoneLocks[i])  then\n              return;\n            end\n          end\n          unlockBoosterBox()\n        end)\n    else\n      print(\"Request failed :(\")\n    end\nend\n\nfunction waitForObjToHaveGUID(obj)\n  return Promise(function(resolve, reject)\n    Wait.condition(\n      function() resolve(getObjectFromGUID(obj.getGUID())) end,\n      function() return obj.getGUID() != nil end,\n      600,\n      reject\n    )\n  end)\nend\n\nfunction spawnBoosterWrapper(zone)\n  local position = zone.positionToWorld({x=-0.45, y=0, z=0})\n\n  print(\"spawning booster at\".. \"x:\" .. position.x .. \" y:\" .. position.y .. \" z:\" .. position.z)\n  local pack = spawnObject({\n    type= \"Custom_Model\",\n    scale= {x=1.3,y=1.3,z=1.3},\n    position= position,\n  })\n  pack.setCustomObject({\n    mesh= \"https://www.dropbox.com/s/jockzmj1e6yx0ub/tuckbox.obj?dl=1\",\n    type= 6\n  })\n\n  return waitForObjToHaveGUID(pack)\nend\n\nfunction collectCards(zone)\n  local sortedCards = table.sort(zone.getObjects(), function(a,b)\n    return a.getPosition().x < b.getPosition().x\n  end)\n  local sortedCardGUIDs = map(function(card)\n    return card.getGUID()\n  end, sortedCards)\n  local stack = getObjectFromGUID(sortedCardGUIDs[1])\n  for i=2, #sortedCardGUIDs do\n    stack = stack.putObject(getObjectFromGUID(sortedCardGUIDs[i]))\n  end\n\n  return stack\nend\n\nfunction spreadDeckAndNameCards(deck, cards)\n  return Promise(function(resolve, reject)\n    local callbackCalled = 0\n    for i=1, #cards do\n      deck.takeObject({\n        position=deck.positionToWorld({x=3*i, y=0, z=0}),\n        callback_function=function(obj)\n          obj.setName(cards[i].name)\n          obj.setDescription(cards[i].oracle_text)\n          callbackCalled = callbackCalled + 1\n\n          if (callbackCalled == #cards) then\n            resolve()\n          end\n        end\n      })\n    end\n  end)\nend\n\nfunction createBooster(zone, data)\n  return Promise(function(resolve, reject)\n    local position = zone.positionToWorld({x=-0.45, y=0, z=0})\n\n    local booster = spawnObject({\n      type= \"DeckCustom\",\n      position= position,\n      rotation= {x=0, y=180, z=180},\n      callback_function= function(obj)\n        waitForObjToHaveGUID(obj).thenF(function(obj)\n            resolve(obj)\n        end)\n      end\n    })\n\n    booster.setCustomObject({\n      face= data.image.url,\n      back= \"https://d1u5p3l4wpay3k.cloudfront.net/mtgsalvation_gamepedia/thumb/f/f8/Magic_card_back.jpg/200px-Magic_card_back.jpg?version=4f6a80129fc99f07b7723141b122def4\",\n      width= data.image.width,\n      height= data.image.height,\n      number= data.image.number,\n      back_is_hidden= true\n    })\n  end)\nend\n\nfunction Promise(func)\n  local isResolved = false\n  local isRejected = false\n  local successFunc = nil\n  local errorFunc = nil\n  local resolveArg = nil\n  local rejectArg = nil\n  local thenResolve = nil\n  local thenReject = nil\n\n  local this = {\n    thenF=function(success, fail)\n      successFunc = success\n      errorFunc = fail\n\n      local promise = Promise(function(resolve, reject)\n        thenResolve = resolve\n        thenReject = reject\n      end)\n\n      if (isResolved) then\n        resolve(resolveArg)\n      end\n\n      if (isRejected) then\n        reject(rejectArg)\n      end\n\n      return promise\n    end\n  }\n\n  local resolve = function(data)\n    isResolved = true\n    resolveArg = data\n    if (successFunc) then\n      local maybePromise = successFunc(data)\n      if (maybePromise and type(maybePromise) == \"table\" and maybePromise.thenF) then\n        maybePromise.thenF(function(data) return thenResolve(data) end)\n      else\n        thenResolve(maybePromise)\n      end\n    end\n  end\n\n  local reject = function(data)\n    isRejected = true\n    rejectArg = data\n    if (errorFunc) then\n      local maybePromise = errorFunc(data)\n      if (maybePromise and maybePromise.thenF) then\n        maybePromise.thenF(nil, thenReject)\n      else\n        thenReject()\n      end\n    end\n  end\n\n  func(resolve, reject)\n\n  return this\nend\n\nfunction setBoosterSet(player, option, setId)\n  local code = setNamesToCode[option]\n  currentBoosterSet = code\nend\n\nfunction setLandSet(player, option, setId)\n  local code = setNamesToCode[option]\n  currentLandSet = code\nend\n",
+  "LuaScriptState": "[]",
+  "Grid": {
+    "Type": 0,
+    "Lines": false,
+    "Color": {
+      "r": 0.0,
+      "g": 0.0,
+      "b": 0.0
+    },
+    "Opacity": 0.75,
+    "ThickLines": false,
+    "Snapping": false,
+    "Offset": false,
+    "BothSnapping": false,
+    "xSize": 2.0,
+    "ySize": 2.0,
+    "PosOffset": {
+      "x": 0.0,
+      "y": 1.0,
+      "z": 0.0
+    }
+  },
+  "Lighting": {
+    "LightIntensity": 0.54,
+    "LightColor": {
+      "r": 1.0,
+      "g": 0.9804,
+      "b": 0.8902
+    },
+    "AmbientIntensity": 1.3,
+    "AmbientType": 0,
+    "AmbientSkyColor": {
+      "r": 0.5,
+      "g": 0.5,
+      "b": 0.5
+    },
+    "AmbientEquatorColor": {
+      "r": 0.5,
+      "g": 0.5,
+      "b": 0.5
+    },
+    "AmbientGroundColor": {
+      "r": 0.5,
+      "g": 0.5,
+      "b": 0.5
+    },
+    "ReflectionIntensity": 1.0,
+    "LutIndex": 0,
+    "LutContribution": 1.0
+  },
+  "Hands": {
+    "Enable": true,
+    "DisableUnused": false,
+    "Hiding": 0,
+    "HandTransforms": [
+      {
+        "Color": "Red",
+        "Transform": {
+          "posX": -15.1108065,
+          "posY": 4.950456,
+          "posZ": -20.1076221,
+          "rotX": 0.0,
+          "rotY": 0.0,
+          "rotZ": 0.0,
+          "scaleX": 11.7722349,
+          "scaleY": 9.174497,
+          "scaleZ": 4.87123871
+        }
+      },
+      {
+        "Color": "Yellow",
+        "Transform": {
+          "posX": -30.2150211,
+          "posY": 4.950456,
+          "posZ": 10.17524,
+          "rotX": 0.0,
+          "rotY": 90.0,
+          "rotZ": 0.0,
+          "scaleX": 11.6571817,
+          "scaleY": 9.174497,
+          "scaleZ": 4.92093372
+        }
+      },
+      {
+        "Color": "Purple",
+        "Transform": {
+          "posX": 30.25128,
+          "posY": 4.950456,
+          "posZ": 9.59069252,
+          "rotX": 0.0,
+          "rotY": 270.0,
+          "rotZ": 0.0,
+          "scaleX": 11.6571741,
+          "scaleY": 9.174497,
+          "scaleZ": 4.92093372
+        }
+      },
+      {
+        "Color": "Blue",
+        "Transform": {
+          "posX": 15.4749184,
+          "posY": 4.950456,
+          "posZ": 19.8365288,
+          "rotX": 0.0,
+          "rotY": 179.8,
+          "rotZ": 0.0,
+          "scaleX": 11.7739553,
+          "scaleY": 9.174497,
+          "scaleZ": 4.872255
+        }
+      },
+      {
+        "Color": "White",
+        "Transform": {
+          "posX": 15.1961479,
+          "posY": 4.950456,
+          "posZ": -20.1400986,
+          "rotX": 0.0,
+          "rotY": 0.0,
+          "rotZ": 0.0,
+          "scaleX": 11.7722235,
+          "scaleY": 9.17449951,
+          "scaleZ": 4.87123871
+        }
+      },
+      {
+        "Color": "Green",
+        "Transform": {
+          "posX": -15.1927767,
+          "posY": 4.950456,
+          "posZ": 19.787817,
+          "rotX": 0.0,
+          "rotY": 180.0,
+          "rotZ": 0.0,
+          "scaleX": 11.7722235,
+          "scaleY": 9.174497,
+          "scaleZ": 4.87123871
+        }
+      },
+      {
+        "Color": "Pink",
+        "Transform": {
+          "posX": 30.10358,
+          "posY": 4.950456,
+          "posZ": -8.449126,
+          "rotX": 0.0,
+          "rotY": 270.0,
+          "rotZ": 0.0,
+          "scaleX": 11.65717,
+          "scaleY": 9.174497,
+          "scaleZ": 4.92093372
+        }
+      },
+      {
+        "Color": "Orange",
+        "Transform": {
+          "posX": -30.247818,
+          "posY": 4.950456,
+          "posZ": -8.822588,
+          "rotX": 0.0,
+          "rotY": 90.0,
+          "rotZ": 0.0,
+          "scaleX": 11.6571846,
+          "scaleY": 9.174497,
+          "scaleZ": 4.92093372
+        }
+      }
+    ]
+  },
+  "Turns": {
+    "Enable": false,
+    "Type": 0,
+    "TurnOrder": [],
+    "Reverse": false,
+    "SkipEmpty": false,
+    "DisableInteractions": false,
+    "PassTurns": true,
+    "TurnColor": ""
+  },
+  "ObjectStates": [
+    {
+      "Name": "ScriptingTrigger",
+      "Transform": {
+        "posX": 0.0,
+        "posY": 1.51113462,
+        "posZ": 15.7730093,
+        "rotX": 0.0,
+        "rotY": 0.0,
+        "rotZ": 0.0,
+        "scaleX": 56.51929,
+        "scaleY": 1.0,
+        "scaleZ": 4.0
+      },
+      "Nickname": "",
+      "Description": "",
+      "ColorDiffuse": {
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0
+      },
+      "Locked": true,
+      "Grid": true,
+      "Snap": true,
+      "Autoraise": true,
+      "Sticky": true,
+      "Tooltip": true,
+      "GridProjection": false,
+      "HideWhenFaceDown": false,
+      "Hands": false,
+      "XmlUI": "",
+      "LuaScript": "",
+      "LuaScriptState": "",
+      "GUID": "0c35fc"
+    },
+    {
+      "Name": "ScriptingTrigger",
+      "Transform": {
+        "posX": 0.0,
+        "posY": 1.51113462,
+        "posZ": 11.6730089,
+        "rotX": 0.0,
+        "rotY": 0.0,
+        "rotZ": 0.0,
+        "scaleX": 56.51929,
+        "scaleY": 1.0,
+        "scaleZ": 4.0
+      },
+      "Nickname": "",
+      "Description": "",
+      "ColorDiffuse": {
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0
+      },
+      "Locked": true,
+      "Grid": true,
+      "Snap": true,
+      "Autoraise": true,
+      "Sticky": true,
+      "Tooltip": true,
+      "GridProjection": false,
+      "HideWhenFaceDown": false,
+      "Hands": false,
+      "XmlUI": "",
+      "LuaScript": "",
+      "LuaScriptState": "",
+      "GUID": "ef6503"
+    },
+    {
+      "Name": "ScriptingTrigger",
+      "Transform": {
+        "posX": 0.0,
+        "posY": 1.51113462,
+        "posZ": 7.673009,
+        "rotX": 0.0,
+        "rotY": 0.0,
+        "rotZ": 0.0,
+        "scaleX": 56.51929,
+        "scaleY": 1.0,
+        "scaleZ": 4.0
+      },
+      "Nickname": "",
+      "Description": "",
+      "ColorDiffuse": {
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0
+      },
+      "Locked": true,
+      "Grid": true,
+      "Snap": true,
+      "Autoraise": true,
+      "Sticky": true,
+      "Tooltip": true,
+      "GridProjection": false,
+      "HideWhenFaceDown": false,
+      "Hands": false,
+      "XmlUI": "",
+      "LuaScript": "",
+      "LuaScriptState": "",
+      "GUID": "37a754"
+    },
+    {
+      "Name": "ScriptingTrigger",
+      "Transform": {
+        "posX": 0.0,
+        "posY": 1.51113462,
+        "posZ": 3.673009,
+        "rotX": 0.0,
+        "rotY": 0.0,
+        "rotZ": 0.0,
+        "scaleX": 56.51929,
+        "scaleY": 1.0,
+        "scaleZ": 4.0
+      },
+      "Nickname": "",
+      "Description": "",
+      "ColorDiffuse": {
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0
+      },
+      "Locked": true,
+      "Grid": true,
+      "Snap": true,
+      "Autoraise": true,
+      "Sticky": true,
+      "Tooltip": true,
+      "GridProjection": false,
+      "HideWhenFaceDown": false,
+      "Hands": false,
+      "XmlUI": "",
+      "LuaScript": "",
+      "LuaScriptState": "",
+      "GUID": "8cf839"
+    },
+    {
+      "Name": "ScriptingTrigger",
+      "Transform": {
+        "posX": 0.0,
+        "posY": 1.51113462,
+        "posZ": -0.3269911,
+        "rotX": 0.0,
+        "rotY": 0.0,
+        "rotZ": 0.0,
+        "scaleX": 56.51929,
+        "scaleY": 1.0,
+        "scaleZ": 4.0
+      },
+      "Nickname": "",
+      "Description": "",
+      "ColorDiffuse": {
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0
+      },
+      "Locked": true,
+      "Grid": true,
+      "Snap": true,
+      "Autoraise": true,
+      "Sticky": true,
+      "Tooltip": true,
+      "GridProjection": false,
+      "HideWhenFaceDown": false,
+      "Hands": false,
+      "XmlUI": "",
+      "LuaScript": "",
+      "LuaScriptState": "",
+      "GUID": "1801db"
+    },
+    {
+      "Name": "ScriptingTrigger",
+      "Transform": {
+        "posX": 0.0,
+        "posY": 1.51113462,
+        "posZ": -4.326991,
+        "rotX": 0.0,
+        "rotY": 0.0,
+        "rotZ": 0.0,
+        "scaleX": 56.51929,
+        "scaleY": 1.0,
+        "scaleZ": 4.0
+      },
+      "Nickname": "",
+      "Description": "",
+      "ColorDiffuse": {
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0
+      },
+      "Locked": true,
+      "Grid": true,
+      "Snap": true,
+      "Autoraise": true,
+      "Sticky": true,
+      "Tooltip": true,
+      "GridProjection": false,
+      "HideWhenFaceDown": false,
+      "Hands": false,
+      "XmlUI": "",
+      "LuaScript": "",
+      "LuaScriptState": "",
+      "GUID": "868adc"
+    },
+    {
+      "Name": "ScriptingTrigger",
+      "Transform": {
+        "posX": 0.0,
+        "posY": 1.51113462,
+        "posZ": -8.326991,
+        "rotX": 0.0,
+        "rotY": 0.0,
+        "rotZ": 0.0,
+        "scaleX": 56.51929,
+        "scaleY": 1.0,
+        "scaleZ": 4.0
+      },
+      "Nickname": "",
+      "Description": "",
+      "ColorDiffuse": {
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0
+      },
+      "Locked": true,
+      "Grid": true,
+      "Snap": true,
+      "Autoraise": true,
+      "Sticky": true,
+      "Tooltip": true,
+      "GridProjection": false,
+      "HideWhenFaceDown": false,
+      "Hands": false,
+      "XmlUI": "",
+      "LuaScript": "",
+      "LuaScriptState": "",
+      "GUID": "65263e"
+    },
+    {
+      "Name": "ScriptingTrigger",
+      "Transform": {
+        "posX": 0.0,
+        "posY": 1.51113462,
+        "posZ": -12.3269911,
+        "rotX": 0.0,
+        "rotY": 0.0,
+        "rotZ": 0.0,
+        "scaleX": 56.51929,
+        "scaleY": 1.0,
+        "scaleZ": 4.0
+      },
+      "Nickname": "",
+      "Description": "",
+      "ColorDiffuse": {
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0
+      },
+      "Locked": true,
+      "Grid": true,
+      "Snap": true,
+      "Autoraise": true,
+      "Sticky": true,
+      "Tooltip": true,
+      "GridProjection": false,
+      "HideWhenFaceDown": false,
+      "Hands": false,
+      "XmlUI": "",
+      "LuaScript": "",
+      "LuaScriptState": "",
+      "GUID": "96fe96"
+    }
+  ],
+  "DecalPallet": [],
+  "TabStates": {
+    "0": {
+      "title": "Rules",
+      "body": "",
+      "color": "Grey",
+      "visibleColor": {
+        "r": 0.5,
+        "g": 0.5,
+        "b": 0.5
+      },
+      "id": 0
+    },
+    "1": {
+      "title": "White",
+      "body": "",
+      "color": "White",
+      "visibleColor": {
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0
+      },
+      "id": 1
+    },
+    "2": {
+      "title": "Brown",
+      "body": "",
+      "color": "Brown",
+      "visibleColor": {
+        "r": 0.443,
+        "g": 0.231,
+        "b": 0.09
+      },
+      "id": 2
+    },
+    "3": {
+      "title": "Red",
+      "body": "",
+      "color": "Red",
+      "visibleColor": {
+        "r": 0.856,
+        "g": 0.1,
+        "b": 0.094
+      },
+      "id": 3
+    },
+    "4": {
+      "title": "Orange",
+      "body": "",
+      "color": "Orange",
+      "visibleColor": {
+        "r": 0.956,
+        "g": 0.392,
+        "b": 0.113
+      },
+      "id": 4
+    },
+    "5": {
+      "title": "Yellow",
+      "body": "",
+      "color": "Yellow",
+      "visibleColor": {
+        "r": 0.905,
+        "g": 0.898,
+        "b": 0.172
+      },
+      "id": 5
+    },
+    "6": {
+      "title": "Green",
+      "body": "",
+      "color": "Green",
+      "visibleColor": {
+        "r": 0.192,
+        "g": 0.701,
+        "b": 0.168
+      },
+      "id": 6
+    },
+    "7": {
+      "title": "Blue",
+      "body": "",
+      "color": "Blue",
+      "visibleColor": {
+        "r": 0.118,
+        "g": 0.53,
+        "b": 1.0
+      },
+      "id": 7
+    },
+    "8": {
+      "title": "Teal",
+      "body": "",
+      "color": "Teal",
+      "visibleColor": {
+        "r": 0.129,
+        "g": 0.694,
+        "b": 0.607
+      },
+      "id": 8
+    },
+    "9": {
+      "title": "Purple",
+      "body": "",
+      "color": "Purple",
+      "visibleColor": {
+        "r": 0.627,
+        "g": 0.125,
+        "b": 0.941
+      },
+      "id": 9
+    },
+    "10": {
+      "title": "Pink",
+      "body": "",
+      "color": "Pink",
+      "visibleColor": {
+        "r": 0.96,
+        "g": 0.439,
+        "b": 0.807
+      },
+      "id": 10
+    },
+    "11": {
+      "title": "Black",
+      "body": "",
+      "color": "Black",
+      "visibleColor": {
+        "r": 0.25,
+        "g": 0.25,
+        "b": 0.25
+      },
+      "id": 11
+    }
+  },
+  "VersionNumber": "v10.9.3"
+}
